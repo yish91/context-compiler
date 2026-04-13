@@ -1,0 +1,35 @@
+{
+  "article_files": [
+    "subsystem-api.md",
+    "subsystem-web.md",
+    "domain-auth.md",
+    "database.md"
+  ],
+  "artifact_hashes": {
+    "architecture.md": "94d89bfa425a8bfdd34811537d21643b4c65342f",
+    "components.md": "2bb41b2e2875ffab660399a2320bd4e737632e06",
+    "config.md": "d0f500c127b3315bcff8a3782178156d1aa1c6d9",
+    "database.md": "4949d486042d55b5c2e24859b67acacdc67d10af",
+    "domain-auth.md": "915c7ac00c763c237a8fc3d82710b38dd27834b5",
+    "hot-files.md": "b1a344f8ad131d047e6f3be96e5f83d9c08f3222",
+    "index.md": "520d6501a383e8f934a9ee8e8862a293851a9fa7",
+    "map.json": "975a5f1b6111b738407305899cc9074ca5df1bd2",
+    "overview.md": "83eb76241f7e68d44af6a1c989390a2f79ac14c7",
+    "routes.md": "8ef1b7194fcf98aa15b5e33bb96e644172927217",
+    "schema.md": "f59f06f446c583785628ebdc5c76b69104e57ed1",
+    "subsystem-api.md": "566075c9c7bf68fc41153e6579393e089770a42b",
+    "subsystem-web.md": "e715f9cbd3fd5161e8e08702e32361825dc08a02"
+  },
+  "compiler_version": "0.1.0",
+  "scan_time": 1776009791,
+  "source_hashes": {
+    "api/auth.py": "f4b29a8a127738aa58414c936af1ff12d96e8240",
+    "api/auth_routes.py": "87861cdc0887a3dfabf3f1534e5928057e9daef9",
+    "api/routes.py": "95c742ae8e739b335c26b5ba15184e472de7d22a",
+    "api/schema.py": "ea1981da0bae490c58dd5633f14143450ede807c",
+    "api/server.py": "f109b978a81a510276ac184fd7bb48e4e9f515f8",
+    "web/src/App.tsx": "830d7fe614eb39792f21e3d0031485816885ed89",
+    "web/src/auth/Login.tsx": "076279a33bcdd489b0f46211205280f4b07fa8dc",
+    "web/src/config.ts": "d6d13c63c06f7dff80a94a44ba39ed9fc4cd43ff"
+  }
+}

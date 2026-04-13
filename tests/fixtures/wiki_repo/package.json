@@ -1,0 +1,8 @@
+{
+  "name": "wiki-app",
+  "version": "1.0.0",
+  "workspaces": ["web"],
+  "dependencies": {
+    "react": "^18.2.0"
+  }
+}

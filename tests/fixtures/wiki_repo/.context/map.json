@@ -1,0 +1,563 @@
+{
+  "articles": [
+    {
+      "kind": "structure",
+      "name": "subsystem-api",
+      "related_paths": [
+        "web/src/config.ts"
+      ],
+      "source_paths": [
+        "api/auth.py",
+        "api/auth_routes.py",
+        "api/routes.py",
+        "api/schema.py",
+        "api/server.py"
+      ],
+      "title": "Api Subsystem"
+    },
+    {
+      "kind": "structure",
+      "name": "subsystem-web",
+      "related_paths": [
+        "api/auth.py"
+      ],
+      "source_paths": [
+        "web/src/App.tsx",
+        "web/src/auth/Login.tsx",
+        "web/src/config.ts"
+      ],
+      "title": "Web Subsystem"
+    },
+    {
+      "kind": "domain",
+      "name": "domain-auth",
+      "related_paths": [
+        "web/src/App.tsx",
+        "web/src/config.ts"
+      ],
+      "source_paths": [
+        "api/auth.py",
+        "api/auth_routes.py",
+        "web/src/auth/Login.tsx"
+      ],
+      "title": "Auth Domain"
+    },
+    {
+      "kind": "database",
+      "name": "database",
+      "related_paths": [
+        "web/src/config.ts"
+      ],
+      "source_paths": [
+        "api/auth.py",
+        "api/schema.py",
+        "web/src/App.tsx",
+        "web/src/auth/Login.tsx"
+      ],
+      "title": "Database Models"
+    }
+  ],
+  "artifacts": [
+    "index.md",
+    "overview.md",
+    "architecture.md",
+    "routes.md",
+    "schema.md",
+    "components.md",
+    "config.md",
+    "hot-files.md"
+  ],
+  "components": [
+    {
+      "line": 8,
+      "name": "App",
+      "props": [
+        "title"
+      ],
+      "source": "web/src/App.tsx"
+    },
+    {
+      "line": 7,
+      "name": "Login",
+      "props": [
+        "onSuccess"
+      ],
+      "source": "web/src/auth/Login.tsx"
+    }
+  ],
+  "config_refs": [
+    {
+      "kind": "env",
+      "line": 9,
+      "name": "AUTH_SECRET",
+      "source": "api/auth.py"
+    },
+    {
+      "kind": "env",
+      "line": 10,
+      "name": "AUTH_TOKEN_EXPIRY",
+      "source": "api/auth.py"
+    },
+    {
+      "kind": "env",
+      "line": 10,
+      "name": "APP_NAME",
+      "source": "api/server.py"
+    },
+    {
+      "kind": "env",
+      "line": 3,
+      "name": "API_BASE_URL",
+      "source": "web/src/config.ts"
+    },
+    {
+      "kind": "env",
+      "line": 4,
+      "name": "AUTH_SECRET",
+      "source": "web/src/config.ts"
+    }
+  ],
+  "edges": [
+    {
+      "resolved": false,
+      "source": "api/auth.py",
+      "target": "os"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth.py",
+      "target": "datetime"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth.py",
+      "target": "pydantic"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth.py",
+      "target": "secrets"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth_routes.py",
+      "target": "fastapi"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth_routes.py",
+      "target": "auth"
+    },
+    {
+      "resolved": false,
+      "source": "api/auth_routes.py",
+      "target": "schema"
+    },
+    {
+      "resolved": false,
+      "source": "api/routes.py",
+      "target": "fastapi"
+    },
+    {
+      "resolved": false,
+      "source": "api/routes.py",
+      "target": "schema"
+    },
+    {
+      "resolved": false,
+      "source": "api/schema.py",
+      "target": "pydantic"
+    },
+    {
+      "resolved": false,
+      "source": "api/server.py",
+      "target": "os"
+    },
+    {
+      "resolved": false,
+      "source": "api/server.py",
+      "target": "fastapi"
+    },
+    {
+      "resolved": false,
+      "source": "api/server.py",
+      "target": "routes"
+    },
+    {
+      "resolved": false,
+      "source": "api/server.py",
+      "target": "schema"
+    },
+    {
+      "resolved": false,
+      "source": "api/server.py",
+      "target": "uvicorn"
+    },
+    {
+      "resolved": false,
+      "source": "web/src/App.tsx",
+      "target": "react"
+    },
+    {
+      "resolved": true,
+      "source": "web/src/App.tsx",
+      "target": "web/src/auth/Login.tsx"
+    },
+    {
+      "resolved": false,
+      "source": "web/src/auth/Login.tsx",
+      "target": "react"
+    }
+  ],
+  "endpoints": [
+    {
+      "framework": "python-fastapi",
+      "handler": "login",
+      "line": 13,
+      "method": "POST",
+      "path": "/auth/login",
+      "source": "api/auth_routes.py"
+    },
+    {
+      "framework": "python-fastapi",
+      "handler": "logout",
+      "line": 20,
+      "method": "POST",
+      "path": "/auth/logout",
+      "source": "api/auth_routes.py"
+    },
+    {
+      "framework": "python-fastapi",
+      "handler": "get_current_user",
+      "line": 24,
+      "method": "GET",
+      "path": "/auth/me",
+      "source": "api/auth_routes.py"
+    },
+    {
+      "framework": "python-fastapi",
+      "handler": "get_page",
+      "line": 12,
+      "method": "GET",
+      "path": "/pages/{page_id}",
+      "source": "api/routes.py"
+    },
+    {
+      "framework": "python-fastapi",
+      "handler": "create_page",
+      "line": 17,
+      "method": "POST",
+      "path": "/pages",
+      "source": "api/routes.py"
+    },
+    {
+      "framework": "python-fastapi",
+      "handler": "health_check",
+      "line": 21,
+      "method": "GET",
+      "path": "/health",
+      "source": "api/routes.py"
+    }
+  ],
+  "entrypoints": [
+    {
+      "framework": "python-generic",
+      "kind": "application",
+      "line": 13,
+      "name": "create_app",
+      "source": "api/server.py"
+    }
+  ],
+  "files": [
+    {
+      "language": "python",
+      "path": "api/auth.py",
+      "sha1": "f4b29a8a127738aa58414c936af1ff12d96e8240",
+      "size_bytes": 918
+    },
+    {
+      "language": "python",
+      "path": "api/auth_routes.py",
+      "sha1": "87861cdc0887a3dfabf3f1534e5928057e9daef9",
+      "size_bytes": 884
+    },
+    {
+      "language": "python",
+      "path": "api/routes.py",
+      "sha1": "95c742ae8e739b335c26b5ba15184e472de7d22a",
+      "size_bytes": 635
+    },
+    {
+      "language": "python",
+      "path": "api/schema.py",
+      "sha1": "ea1981da0bae490c58dd5633f14143450ede807c",
+      "size_bytes": 407
+    },
+    {
+      "language": "python",
+      "path": "api/server.py",
+      "sha1": "f109b978a81a510276ac184fd7bb48e4e9f515f8",
+      "size_bytes": 428
+    },
+    {
+      "language": "tsx",
+      "path": "web/src/App.tsx",
+      "sha1": "830d7fe614eb39792f21e3d0031485816885ed89",
+      "size_bytes": 429
+    },
+    {
+      "language": "tsx",
+      "path": "web/src/auth/Login.tsx",
+      "sha1": "076279a33bcdd489b0f46211205280f4b07fa8dc",
+      "size_bytes": 958
+    },
+    {
+      "language": "typescript",
+      "path": "web/src/config.ts",
+      "sha1": "d6d13c63c06f7dff80a94a44ba39ed9fc4cd43ff",
+      "size_bytes": 176
+    }
+  ],
+  "hot_files": [
+    {
+      "indegree": 1,
+      "outdegree": 0,
+      "path": "web/src/auth/Login.tsx"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 1,
+      "path": "web/src/App.tsx"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "api/auth.py"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "api/auth_routes.py"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "api/routes.py"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "api/schema.py"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "api/server.py"
+    },
+    {
+      "indegree": 0,
+      "outdegree": 0,
+      "path": "web/src/config.ts"
+    }
+  ],
+  "metadata": {
+    "compiler_version": "0.1.0",
+    "repo_root": "/Users/yish/Documents/Development/codegraphing/context-compiler/tests/fixtures/wiki_repo",
+    "scan_time": 1776009791
+  },
+  "models": [
+    {
+      "fields": [
+        "token",
+        "user_id",
+        "expires_at"
+      ],
+      "kind": "class",
+      "line": 13,
+      "name": "AuthToken",
+      "source": "api/auth.py"
+    },
+    {
+      "fields": [
+        "username",
+        "password"
+      ],
+      "kind": "class",
+      "line": 20,
+      "name": "AuthCredentials",
+      "source": "api/auth.py"
+    },
+    {
+      "fields": [
+        "id",
+        "title",
+        "content"
+      ],
+      "kind": "class",
+      "line": 6,
+      "name": "WikiPage",
+      "source": "api/schema.py"
+    },
+    {
+      "fields": [
+        "title",
+        "content"
+      ],
+      "kind": "class",
+      "line": 13,
+      "name": "CreatePageRequest",
+      "source": "api/schema.py"
+    },
+    {
+      "fields": [
+        "id",
+        "username",
+        "email"
+      ],
+      "kind": "class",
+      "line": 19,
+      "name": "User",
+      "source": "api/schema.py"
+    },
+    {
+      "fields": [
+        "title"
+      ],
+      "kind": "interface",
+      "line": 4,
+      "name": "AppProps",
+      "source": "web/src/App.tsx"
+    },
+    {
+      "fields": [
+        "onSuccess"
+      ],
+      "kind": "interface",
+      "line": 3,
+      "name": "LoginProps",
+      "source": "web/src/auth/Login.tsx"
+    }
+  ],
+  "symbols": [
+    {
+      "kind": "class",
+      "line": 13,
+      "name": "AuthToken",
+      "path": "api/auth.py"
+    },
+    {
+      "kind": "class",
+      "line": 20,
+      "name": "AuthCredentials",
+      "path": "api/auth.py"
+    },
+    {
+      "kind": "function",
+      "line": 26,
+      "name": "create_auth_token",
+      "path": "api/auth.py"
+    },
+    {
+      "kind": "function",
+      "line": 34,
+      "name": "verify_auth_token",
+      "path": "api/auth.py"
+    },
+    {
+      "kind": "function",
+      "line": 9,
+      "name": "register_auth_routes",
+      "path": "api/auth_routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 13,
+      "name": "login",
+      "path": "api/auth_routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 20,
+      "name": "logout",
+      "path": "api/auth_routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 24,
+      "name": "get_current_user",
+      "path": "api/auth_routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 8,
+      "name": "register_routes",
+      "path": "api/routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 12,
+      "name": "get_page",
+      "path": "api/routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 17,
+      "name": "create_page",
+      "path": "api/routes.py"
+    },
+    {
+      "kind": "function",
+      "line": 21,
+      "name": "health_check",
+      "path": "api/routes.py"
+    },
+    {
+      "kind": "class",
+      "line": 6,
+      "name": "WikiPage",
+      "path": "api/schema.py"
+    },
+    {
+      "kind": "class",
+      "line": 13,
+      "name": "CreatePageRequest",
+      "path": "api/schema.py"
+    },
+    {
+      "kind": "class",
+      "line": 19,
+      "name": "User",
+      "path": "api/schema.py"
+    },
+    {
+      "kind": "function",
+      "line": 13,
+      "name": "create_app",
+      "path": "api/server.py"
+    },
+    {
+      "kind": "class",
+      "line": 4,
+      "name": "AppProps",
+      "path": "web/src/App.tsx"
+    },
+    {
+      "kind": "function",
+      "line": 8,
+      "name": "App",
+      "path": "web/src/App.tsx"
+    },
+    {
+      "kind": "class",
+      "line": 3,
+      "name": "LoginProps",
+      "path": "web/src/auth/Login.tsx"
+    },
+    {
+      "kind": "function",
+      "line": 7,
+      "name": "Login",
+      "path": "web/src/auth/Login.tsx"
+    }
+  ]
+}
