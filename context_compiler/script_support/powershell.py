@@ -3,47 +3,43 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from ..ast_utils import decode_source, read_source_bytes, safe_parse, walk_preorder
 from ..models import ConfigRef, SourceFile, Symbol
-from ..tree_sitter_runtime import node_text, parse_source
+from ..tree_sitter_runtime import node_text
 
 ENV_PATTERN = re.compile(r"""\$env:([A-Z_][A-Z0-9_]*)""", re.IGNORECASE)
 
 
 def extract_powershell_facts(source_file: SourceFile) -> dict[str, Any]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
+    source = read_source_bytes(source_file)
     symbols: list[Symbol] = []
     config_refs: list[ConfigRef] = []
 
-    try:
-        tree = parse_source("powershell", source)
+    tree = safe_parse("powershell", source)
+    if tree is not None:
         _extract_tree_symbols(tree, source_file, source, symbols)
-    except LookupError:
-        pass
 
-    text = source.decode("utf-8", errors="replace")
+    text = decode_source(source)
     _extract_env_refs(text, source_file, config_refs)
 
     return {"symbols": symbols, "imports": [], "config_refs": config_refs}
 
 
 def _extract_tree_symbols(tree: Any, source_file: SourceFile, source: bytes, symbols: list[Symbol]) -> None:
-    def visit(node: Any) -> None:
-        if node.type == "function_statement":
-            for child in node.children:
-                if child.type == "function_name":
-                    symbols.append(
-                        Symbol(
-                            name=node_text(source, child),
-                            kind="function",
-                            source_path=source_file.relative_path,
-                            line=node.start_point[0] + 1,
-                        )
-                    )
-                    break
+    for node in walk_preorder(tree.root_node):
+        if node.type != "function_statement":
+            continue
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "function_name":
+                symbols.append(
+                    Symbol(
+                        name=node_text(source, child),
+                        kind="function",
+                        source_path=source_file.relative_path,
+                        line=node.start_point[0] + 1,
+                    )
+                )
+                break
 
 
 def _extract_env_refs(text: str, source_file: SourceFile, config_refs: list[ConfigRef]) -> None:

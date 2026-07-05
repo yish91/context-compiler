@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..ast_utils import walk_preorder
 from ..language_profiles import get_profile
 from ..models import DocSignal, SourceFile, Symbol
 from ..tree_sitter_runtime import node_text
@@ -14,34 +15,23 @@ def extract_symbols(tree, source_file: SourceFile, source: bytes) -> list[Symbol
     if profile is None:
         return []
     out: list[Symbol] = []
-
-    def visit(node) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type in profile.function_types:
-            name = _symbol_name(node, source)
-            if name:
-                out.append(
-                    Symbol(
-                        name=name,
-                        kind="function",
-                        source_path=source_file.relative_path,
-                        line=node.start_point[0] + 1,
-                    )
-                )
+            kind = "function"
         elif node.type in profile.class_types:
-            name = _symbol_name(node, source)
-            if name:
-                out.append(
-                    Symbol(
-                        name=name,
-                        kind="class",
-                        source_path=source_file.relative_path,
-                        line=node.start_point[0] + 1,
-                    )
+            kind = "class"
+        else:
+            continue
+        name = _symbol_name(node, source)
+        if name:
+            out.append(
+                Symbol(
+                    name=name,
+                    kind=kind,
+                    source_path=source_file.relative_path,
+                    line=node.start_point[0] + 1,
                 )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            )
     return out
 
 

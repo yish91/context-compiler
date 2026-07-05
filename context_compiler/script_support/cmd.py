@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from ..ast_utils import line_at_offset, read_source_text
 from ..models import ConfigRef, ImportEdge, SourceFile, Symbol
 
 LABEL_PATTERN = re.compile(r"^:(\w+)", re.MULTILINE)
@@ -12,8 +13,7 @@ ENV_PATTERN = re.compile(r"%([A-Z_][A-Z0-9_]*)%")
 
 
 def extract_cmd_facts(source_file: SourceFile) -> dict[str, Any]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    text = source.decode("utf-8", errors="replace")
+    text = read_source_text(source_file)
     symbols: list[Symbol] = []
     imports: list[ImportEdge] = []
     config_refs: list[ConfigRef] = []
@@ -30,7 +30,7 @@ def _extract_labels(text: str, source_file: SourceFile, symbols: list[Symbol]) -
         name = match.group(1)
         if name.lower() == "eof":
             continue
-        line = text[: match.start()].count("\n") + 1
+        line = line_at_offset(text, match.start())
         symbols.append(
             Symbol(
                 name=name,
@@ -61,7 +61,7 @@ def _extract_env_refs(text: str, source_file: SourceFile, config_refs: list[Conf
         name = match.group(1)
         if name not in seen:
             seen.add(name)
-            line = text[: match.start()].count("\n") + 1
+            line = line_at_offset(text, match.start())
             config_refs.append(
                 ConfigRef(name=name, kind="env", source_path=source_file.relative_path, line=line)
             )
@@ -69,7 +69,7 @@ def _extract_env_refs(text: str, source_file: SourceFile, config_refs: list[Conf
         name = match.group(1)
         if name not in seen:
             seen.add(name)
-            line = text[: match.start()].count("\n") + 1
+            line = line_at_offset(text, match.start())
             config_refs.append(
                 ConfigRef(name=name, kind="env", source_path=source_file.relative_path, line=line)
             )

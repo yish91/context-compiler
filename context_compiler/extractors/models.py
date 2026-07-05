@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..ast_utils import go_struct_fields, read_source_bytes, walk_preorder
 from ..models import DataModel, ExtractedProject, ScanInput, SourceFile
 from ..tree_sitter_runtime import node_text, parse_source
 
@@ -10,7 +11,7 @@ PYTHON_MODEL_DECORATORS = {"dataclass", "dataclasses.dataclass", "attr.s", "attr
 def extract_models(scan_input: ScanInput, project: ExtractedProject) -> list[DataModel]:
     models: list[DataModel] = []
     for source_file in scan_input.files:
-        source = source_file.source_bytes or source_file.absolute_path.read_bytes()
+        source = read_source_bytes(source_file)
         if source_file.language == "python":
             models.extend(_python_models(source_file, source))
         elif source_file.language == "go":
@@ -54,7 +55,7 @@ def _python_models(source_file: SourceFile, source: bytes) -> list[DataModel]:
             )
         )
 
-    def visit(node) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "decorated_definition":
             decorators: list[str] = []
             class_child = None
@@ -68,10 +69,6 @@ def _python_models(source_file: SourceFile, source: bytes) -> list[DataModel]:
                 handle_class(class_child, decorators)
         elif node.type == "class_definition":
             handle_class(node, [])
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
 
 
@@ -97,55 +94,37 @@ def _python_class_fields(class_node, source: bytes) -> list[str]:
 def _go_models(source_file: SourceFile, source: bytes) -> list[DataModel]:
     tree = parse_source("go", source)
     out: list[DataModel] = []
-
-    def visit(node) -> None:
-        if node.type == "type_declaration":
-            for child in node.children:
-                if child.type == "type_spec":
-                    name: str | None = None
-                    is_struct = False
-                    fields: list[str] = []
-                    for sub in child.children:
-                        if sub.type == "type_identifier":
-                            name = node_text(source, sub)
-                        elif sub.type == "struct_type":
-                            is_struct = True
-                            fields = _go_struct_fields(sub, source)
-                    if name is not None and is_struct:
-                        out.append(
-                            DataModel(
-                                name=name,
-                                kind="struct",
-                                fields=fields,
-                                source_path=source_file.relative_path,
-                                line=child.start_point[0] + 1,
-                            )
-                        )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
-    return out
-
-
-def _go_struct_fields(struct_node, source: bytes) -> list[str]:
-    fields: list[str] = []
-    for child in struct_node.children:
-        if child.type != "field_declaration_list":
+    for node in walk_preorder(tree.root_node):
+        if node.type != "type_declaration":
             continue
-        for decl in child.children:
-            if decl.type == "field_declaration":
-                for sub in decl.children:
-                    if sub.type == "field_identifier":
-                        fields.append(node_text(source, sub))
-    return fields
+        for child in node.children:
+            if child.type == "type_spec":
+                name: str | None = None
+                is_struct = False
+                fields: list[str] = []
+                for sub in child.children:
+                    if sub.type == "type_identifier":
+                        name = node_text(source, sub)
+                    elif sub.type == "struct_type":
+                        is_struct = True
+                        fields = go_struct_fields(sub, source)
+                if name is not None and is_struct:
+                    out.append(
+                        DataModel(
+                            name=name,
+                            kind="struct",
+                            fields=fields,
+                            source_path=source_file.relative_path,
+                            line=child.start_point[0] + 1,
+                        )
+                    )
+    return out
 
 
 def _ts_models(source_file: SourceFile, source: bytes) -> list[DataModel]:
     tree = parse_source(source_file.language, source)
     out: list[DataModel] = []
-
-    def visit(node) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "interface_declaration":
             name: str | None = None
             fields: list[str] = []
@@ -182,10 +161,6 @@ def _ts_models(source_file: SourceFile, source: bytes) -> list[DataModel]:
                         line=node.start_point[0] + 1,
                     )
                 )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
 
 
