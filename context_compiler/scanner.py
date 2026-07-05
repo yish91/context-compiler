@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .ast_utils import read_source_text
 from .fs_utils import detect_language, is_ignored, parse_gitignore, sha1_bytes
 from .models import FrameworkHints, ScanInput, SourceFile
 
@@ -55,7 +56,7 @@ def _detect_framework_hints(
         )
     for file in files:
         if file.language == "python":
-            source = file.source_bytes.decode("utf-8", errors="replace") if file.source_bytes else file.absolute_path.read_text(encoding="utf-8", errors="replace")
+            source = read_source_text(file)
             if "from fastapi" in source or "import fastapi" in source:
                 if "fastapi" not in hints.python:
                     hints.python.append("fastapi")
@@ -66,13 +67,13 @@ def _detect_framework_hints(
                 if "django" not in hints.python:
                     hints.python.append("django")
         if file.language == "go":
-            source = file.source_bytes.decode("utf-8", errors="replace") if file.source_bytes else file.absolute_path.read_text(encoding="utf-8", errors="replace")
+            source = read_source_text(file)
             if "net/http" in source and "net/http" not in hints.go:
                 hints.go.append("net/http")
             if "github.com/gin-gonic/gin" in source and "gin" not in hints.go:
                 hints.go.append("gin")
         if file.language == "java":
-            source = file.source_bytes.decode("utf-8", errors="replace") if file.source_bytes else file.absolute_path.read_text(encoding="utf-8", errors="replace")
+            source = read_source_text(file)
             if "org.springframework" in source or "@SpringBootApplication" in source:
                 if "spring" not in hints.java:
                     hints.java.append("spring")

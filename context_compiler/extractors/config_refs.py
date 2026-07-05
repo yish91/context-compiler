@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ..ast_utils import decode_source, line_at_offset
 from ..models import ConfigRef, SourceFile
 
 PROCESS_ENV = re.compile(r"process\.env\.([A-Z_][A-Z0-9_]*)")
@@ -14,7 +15,7 @@ JAVA_GET_PROPERTY = re.compile(r"""\.getProperty\(\s*["']([A-Za-z_][A-Za-z0-9_.]
 
 
 def extract_config_refs(tree, source_file: SourceFile, source: bytes) -> list[ConfigRef]:
-    text = source.decode("utf-8", errors="replace")
+    text = decode_source(source)
     found: dict[str, ConfigRef] = {}
     patterns: list[tuple[re.Pattern[str], str]] = []
     if source_file.language in {"typescript", "tsx", "javascript"}:
@@ -41,7 +42,7 @@ def extract_config_refs(tree, source_file: SourceFile, source: bytes) -> list[Co
             name = match.group(1)
             if name in found:
                 continue
-            line = text[: match.start()].count("\n") + 1
+            line = line_at_offset(text, match.start())
             found[name] = ConfigRef(
                 name=name,
                 kind=kind,

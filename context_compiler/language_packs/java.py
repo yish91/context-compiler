@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from ..ast_utils import decode_source, read_source_bytes, walk_preorder
 from ..extractors.frameworks import project_uses
 from ..models import (
     DataModel,
@@ -66,7 +67,7 @@ def _java_main_entrypoints(scan_input: ScanInput) -> list[Entrypoint]:
         if sf.language != "java":
             continue
         try:
-            source = sf.source_bytes or sf.absolute_path.read_bytes()
+            source = read_source_bytes(sf)
             tree = parse_source("java", source)
             _find_main_methods(tree, sf, source, out)
         except Exception:
@@ -75,27 +76,24 @@ def _java_main_entrypoints(scan_input: ScanInput) -> list[Entrypoint]:
 
 
 def _find_main_methods(tree: object, sf: SourceFile, source: bytes, out: list[Entrypoint]) -> None:
-    def visit(node: object) -> None:
-        if node.type == "method_declaration":
-            name = None
-            for child in node.children:
-                if child.type == "identifier":
-                    name = node_text(source, child)
-                    break
-            if name == "main":
-                out.append(
-                    Entrypoint(
-                        name="main",
-                        kind="application",
-                        source_path=sf.relative_path,
-                        line=node.start_point[0] + 1,
-                        framework="java-generic",
-                    )
-                )
+    for node in walk_preorder(tree.root_node):
+        if node.type != "method_declaration":
+            continue
+        name = None
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "identifier":
+                name = node_text(source, child)
+                break
+        if name == "main":
+            out.append(
+                Entrypoint(
+                    name="main",
+                    kind="application",
+                    source_path=sf.relative_path,
+                    line=node.start_point[0] + 1,
+                    framework="java-generic",
+                )
+            )
 
 
 def _spring_endpoints(scan_input: ScanInput) -> list[Endpoint]:
@@ -104,8 +102,8 @@ def _spring_endpoints(scan_input: ScanInput) -> list[Endpoint]:
         if sf.language != "java":
             continue
         try:
-            source = sf.source_bytes or sf.absolute_path.read_bytes()
-            text = source.decode("utf-8", errors="replace")
+            source = read_source_bytes(sf)
+            text = decode_source(source)
             if not any(anno in text for anno in SPRING_CONTROLLER_ANNOTATIONS):
                 continue
             tree = parse_source("java", source)
@@ -231,8 +229,8 @@ def _spring_models(scan_input: ScanInput) -> list[DataModel]:
         if sf.language != "java":
             continue
         try:
-            source = sf.source_bytes or sf.absolute_path.read_bytes()
-            text = source.decode("utf-8", errors="replace")
+            source = read_source_bytes(sf)
+            text = decode_source(source)
             if not any(anno in text for anno in SPRING_ENTITY_ANNOTATIONS):
                 continue
             tree = parse_source("java", source)
@@ -243,30 +241,27 @@ def _spring_models(scan_input: ScanInput) -> list[DataModel]:
 
 
 def _extract_spring_models(tree: object, sf: SourceFile, source: bytes, out: list[DataModel]) -> None:
-    def visit(node: object) -> None:
-        if node.type == "class_declaration":
-            name = None
-            for child in node.children:
-                if child.type == "identifier":
-                    name = node_text(source, child)
-                    break
-            annotations = _get_annotations(node, source)
-            if any(anno_name in SPRING_ENTITY_ANNOTATIONS for anno_name, _ in annotations):
-                fields = _java_class_fields(node, source)
-                out.append(
-                    DataModel(
-                        name=name or "",
-                        kind="class",
-                        fields=fields,
-                        source_path=sf.relative_path,
-                        line=node.start_point[0] + 1,
-                        framework="java-spring",
-                    )
-                )
+    for node in walk_preorder(tree.root_node):
+        if node.type != "class_declaration":
+            continue
+        name = None
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "identifier":
+                name = node_text(source, child)
+                break
+        annotations = _get_annotations(node, source)
+        if any(anno_name in SPRING_ENTITY_ANNOTATIONS for anno_name, _ in annotations):
+            fields = _java_class_fields(node, source)
+            out.append(
+                DataModel(
+                    name=name or "",
+                    kind="class",
+                    fields=fields,
+                    source_path=sf.relative_path,
+                    line=node.start_point[0] + 1,
+                    framework="java-spring",
+                )
+            )
 
 
 def _java_class_fields(class_node: object, source: bytes) -> list[str]:
@@ -291,8 +286,8 @@ def _spring_boot_entrypoints(scan_input: ScanInput) -> list[Entrypoint]:
         if sf.language != "java":
             continue
         try:
-            source = sf.source_bytes or sf.absolute_path.read_bytes()
-            text = source.decode("utf-8", errors="replace")
+            source = read_source_bytes(sf)
+            text = decode_source(source)
             if "@SpringBootApplication" not in text:
                 continue
             tree = parse_source("java", source)
@@ -303,24 +298,21 @@ def _spring_boot_entrypoints(scan_input: ScanInput) -> list[Entrypoint]:
 
 
 def _find_spring_boot_main(tree: object, sf: SourceFile, source: bytes, out: list[Entrypoint]) -> None:
-    def visit(node: object) -> None:
-        if node.type == "method_declaration":
-            name = None
-            for child in node.children:
-                if child.type == "identifier":
-                    name = node_text(source, child)
-                    break
-            if name == "main":
-                out.append(
-                    Entrypoint(
-                        name="main",
-                        kind="application",
-                        source_path=sf.relative_path,
-                        line=node.start_point[0] + 1,
-                        framework="java-spring",
-                    )
-                )
+    for node in walk_preorder(tree.root_node):
+        if node.type != "method_declaration":
+            continue
+        name = None
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "identifier":
+                name = node_text(source, child)
+                break
+        if name == "main":
+            out.append(
+                Entrypoint(
+                    name="main",
+                    kind="application",
+                    source_path=sf.relative_path,
+                    line=node.start_point[0] + 1,
+                    framework="java-spring",
+                )
+            )

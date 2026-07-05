@@ -3,6 +3,15 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 
+from ..ast_utils import (
+    first_identifier,
+    line_at_offset,
+    react_component_props,
+    read_source_bytes,
+    read_source_text,
+    safe_parse,
+    walk_preorder,
+)
 from ..extractors.frameworks import project_uses
 from ..models import (
     Component,
@@ -12,7 +21,6 @@ from ..models import (
     ScanInput,
     SourceFile,
 )
-from ..tree_sitter_runtime import node_text, parse_source
 from .shared import (
     component_key,
     endpoint_key,
@@ -75,13 +83,12 @@ def _has_ts_entrypoints(scan_input: ScanInput) -> bool:
 
 
 def _ts_deep_endpoints(source_file: SourceFile) -> list[Endpoint]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    text = source.decode("utf-8", errors="replace")
+    text = read_source_text(source_file)
     out: list[Endpoint] = []
     for match in EXPRESS_ROUTE.finditer(text):
         method, path = match.group(1), match.group(2)
         handler = match.group(3) or ""
-        line = text[: match.start()].count("\n") + 1
+        line = line_at_offset(text, match.start())
         out.append(
             Endpoint(
                 method=method.upper(),
@@ -96,18 +103,16 @@ def _ts_deep_endpoints(source_file: SourceFile) -> list[Endpoint]:
 
 
 def _tsx_deep_components(source_file: SourceFile) -> list[Component]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source(source_file.language, source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse(source_file.language, source)
+    if tree is None:
         return []
     out: list[Component] = []
-
-    def visit(node: object) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "function_declaration":
-            name = _first_identifier(node, source)
+            name = first_identifier(node, source)
             if name and name[0].isupper():
-                props = _component_props(node, source)
+                props = react_component_props(node, source)
                 out.append(
                     Component(
                         name=name,
@@ -117,10 +122,6 @@ def _tsx_deep_components(source_file: SourceFile) -> list[Component]:
                         framework="typescript-react",
                     )
                 )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
 
 
@@ -130,16 +131,14 @@ def _ts_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
     basename = os.path.basename(source_file.relative_path)
     if basename not in ENTRYPOINT_FILES:
         return []
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source(source_file.language, source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse(source_file.language, source)
+    if tree is None:
         return []
     out: list[Entrypoint] = []
-
-    def visit(node: object) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "function_declaration":
-            name = _first_identifier(node, source)
+            name = first_identifier(node, source)
             if name and name.lower() in BOOTSTRAP_NAMES:
                 out.append(
                     Entrypoint(
@@ -150,40 +149,4 @@ def _ts_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
                         framework="typescript-generic",
                     )
                 )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
-
-
-def _first_identifier(node: object, source: bytes) -> str | None:
-    for child in node.children:
-        if child.type == "identifier":
-            return node_text(source, child)
-    return None
-
-
-def _component_props(func_node: object, source: bytes) -> list[str]:
-    for child in func_node.children:
-        if child.type != "formal_parameters":
-            continue
-        for param in child.children:
-            if param.type != "required_parameter":
-                continue
-            for sub in _walk(param):
-                if sub.type == "object_pattern":
-                    names: list[str] = []
-                    for obj_child in sub.children:
-                        if obj_child.type == "shorthand_property_identifier_pattern":
-                            names.append(node_text(source, obj_child))
-                    return names
-    return []
-
-
-def _walk(node: object):
-    stack = [node]
-    while stack:
-        current = stack.pop()
-        yield current
-        stack.extend(reversed(current.children))

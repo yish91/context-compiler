@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import replace
 
+from ..ast_utils import (
+    go_struct_fields,
+    read_source_bytes,
+    read_source_text,
+    safe_parse,
+    walk_preorder,
+)
 from ..extractors.frameworks import project_uses
 from ..models import (
     DataModel,
@@ -12,7 +20,7 @@ from ..models import (
     ScanInput,
     SourceFile,
 )
-from ..tree_sitter_runtime import node_text, parse_source
+from ..tree_sitter_runtime import node_text
 from .shared import (
     endpoint_key,
     entrypoint_key,
@@ -68,8 +76,6 @@ def enrich_go(scan_input: ScanInput, project: ExtractedProject) -> ExtractedProj
 
 
 def _has_go_entrypoints(scan_input: ScanInput) -> bool:
-    import os
-
     return any(
         sf.language == "go" and os.path.basename(sf.relative_path) in GO_ENTRYPOINT_FILES
         for sf in scan_input.files
@@ -77,8 +83,7 @@ def _has_go_entrypoints(scan_input: ScanInput) -> bool:
 
 
 def _gin_grouped_endpoints(source_file: SourceFile) -> list[Endpoint]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    text = source.decode("utf-8", errors="replace")
+    text = read_source_text(source_file)
     lines = text.splitlines()
 
     groups: dict[str, str] = {}
@@ -112,70 +117,48 @@ def _gin_grouped_endpoints(source_file: SourceFile) -> list[Endpoint]:
 
 
 def _go_deep_models(source_file: SourceFile) -> list[DataModel]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source("go", source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse("go", source)
+    if tree is None:
         return []
     out: list[DataModel] = []
-
-    def visit(node: object) -> None:
-        if node.type == "type_declaration":
-            for child in node.children:
-                if child.type == "type_spec":
-                    name = None
-                    is_struct = False
-                    fields: list[str] = []
-                    for sub in child.children:
-                        if sub.type == "type_identifier":
-                            name = node_text(source, sub)
-                        elif sub.type == "struct_type":
-                            is_struct = True
-                            fields = _go_struct_fields(sub, source)
-                    if name and is_struct:
-                        out.append(
-                            DataModel(
-                                name=name,
-                                kind="struct",
-                                fields=fields,
-                                source_path=source_file.relative_path,
-                                line=child.start_point[0] + 1,
-                                framework="go-generic",
-                            )
-                        )
+    for node in walk_preorder(tree.root_node):
+        if node.type != "type_declaration":
+            continue
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "type_spec":
+                name = None
+                is_struct = False
+                fields: list[str] = []
+                for sub in child.children:
+                    if sub.type == "type_identifier":
+                        name = node_text(source, sub)
+                    elif sub.type == "struct_type":
+                        is_struct = True
+                        fields = go_struct_fields(sub, source)
+                if name and is_struct:
+                    out.append(
+                        DataModel(
+                            name=name,
+                            kind="struct",
+                            fields=fields,
+                            source_path=source_file.relative_path,
+                            line=child.start_point[0] + 1,
+                            framework="go-generic",
+                        )
+                    )
     return out
 
 
-def _go_struct_fields(struct_node: object, source: bytes) -> list[str]:
-    fields: list[str] = []
-    for child in struct_node.children:
-        if child.type != "field_declaration_list":
-            continue
-        for decl in child.children:
-            if decl.type == "field_declaration":
-                for sub in decl.children:
-                    if sub.type == "field_identifier":
-                        fields.append(node_text(source, sub))
-    return fields
-
-
 def _go_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
-    import os
-
     if os.path.basename(source_file.relative_path) not in GO_ENTRYPOINT_FILES:
         return []
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source("go", source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse("go", source)
+    if tree is None:
         return []
     out: list[Entrypoint] = []
-
-    def visit(node: object) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "function_declaration":
             for child in node.children:
                 if child.type == "identifier":
@@ -191,8 +174,4 @@ def _go_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
                             )
                         )
                     break
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out

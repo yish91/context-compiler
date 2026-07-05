@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import re
 
+from ..ast_utils import (
+    decode_source,
+    line_at_offset,
+    read_source_bytes,
+    walk_preorder,
+)
 from ..models import Endpoint, ExtractedProject, ScanInput, SourceFile
 from ..tree_sitter_runtime import node_text, parse_source
 
@@ -20,7 +26,7 @@ EXPRESS_ROUTE = re.compile(
 def extract_endpoints(scan_input: ScanInput, project: ExtractedProject) -> list[Endpoint]:
     endpoints: list[Endpoint] = []
     for source_file in scan_input.files:
-        source = source_file.source_bytes or source_file.absolute_path.read_bytes()
+        source = read_source_bytes(source_file)
         if source_file.language == "python":
             endpoints.extend(_python_endpoints(source_file, source))
         elif source_file.language == "go":
@@ -33,16 +39,11 @@ def extract_endpoints(scan_input: ScanInput, project: ExtractedProject) -> list[
 def _python_endpoints(source_file: SourceFile, source: bytes) -> list[Endpoint]:
     tree = parse_source(source_file.language, source)
     found: list[Endpoint] = []
-
-    def visit(node) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "decorated_definition":
             endpoint = _python_decorated_endpoint(node, source_file, source)
             if endpoint is not None:
                 found.append(endpoint)
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return found
 
 
@@ -115,11 +116,11 @@ def _first_string_arg(call_node, source: bytes) -> str | None:
 
 
 def _go_endpoints(source_file: SourceFile, source: bytes) -> list[Endpoint]:
-    text = source.decode("utf-8", errors="replace")
+    text = decode_source(source)
     out: list[Endpoint] = []
     for match in GO_HANDLE_FUNC.finditer(text):
         path, handler = match.group(1), match.group(2)
-        line = text[: match.start()].count("\n") + 1
+        line = line_at_offset(text, match.start())
         out.append(
             Endpoint(
                 method="ANY",
@@ -132,7 +133,7 @@ def _go_endpoints(source_file: SourceFile, source: bytes) -> list[Endpoint]:
         )
     for match in GO_GIN.finditer(text):
         method, path, handler = match.group(1), match.group(2), match.group(3)
-        line = text[: match.start()].count("\n") + 1
+        line = line_at_offset(text, match.start())
         out.append(
             Endpoint(
                 method=method,
@@ -147,11 +148,11 @@ def _go_endpoints(source_file: SourceFile, source: bytes) -> list[Endpoint]:
 
 
 def _ts_endpoints(source_file: SourceFile, source: bytes) -> list[Endpoint]:
-    text = source.decode("utf-8", errors="replace")
+    text = decode_source(source)
     out: list[Endpoint] = []
     for match in EXPRESS_ROUTE.finditer(text):
         method, path = match.group(1), match.group(2)
-        line = text[: match.start()].count("\n") + 1
+        line = line_at_offset(text, match.start())
         out.append(
             Endpoint(
                 method=method.upper(),

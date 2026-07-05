@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
+from ..ast_utils import walk_preorder
 from ..language_profiles import get_profile
 from ..models import ImportEdge, SourceFile
 from ..tree_sitter_runtime import node_text
@@ -35,7 +36,7 @@ def extract_imports(tree, source_file: SourceFile, source: bytes) -> list[Import
 
 
 def _find_import_target(node, source: bytes, target_types: frozenset[str]) -> str | None:
-    for descendant in _dfs(node):
+    for descendant in walk_preorder(node):
         if descendant is node:
             continue
         if descendant.type in target_types:
@@ -43,12 +44,6 @@ def _find_import_target(node, source: bytes, target_types: frozenset[str]) -> st
             target = _strip_quotes(raw)
             return _normalize_import_target(target, descendant.type)
     return None
-
-
-def _dfs(node):
-    yield node
-    for child in node.children:
-        yield from _dfs(child)
 
 
 def _strip_quotes(text: str) -> str:

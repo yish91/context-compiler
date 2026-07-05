@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import replace
 
+from ..ast_utils import (
+    decode_source,
+    read_source_bytes,
+    read_source_text,
+    safe_parse,
+    walk_preorder,
+)
 from ..extractors.frameworks import project_uses
 from ..models import (
     DataModel,
@@ -12,7 +20,7 @@ from ..models import (
     ScanInput,
     SourceFile,
 )
-from ..tree_sitter_runtime import node_text, parse_source
+from ..tree_sitter_runtime import node_text
 from .shared import (
     endpoint_key,
     entrypoint_key,
@@ -80,8 +88,6 @@ def enrich_python(scan_input: ScanInput, project: ExtractedProject) -> Extracted
 
 
 def _has_python_entrypoints(scan_input: ScanInput) -> bool:
-    import os
-
     return any(
         sf.language == "python" and os.path.basename(sf.relative_path) in ENTRYPOINT_FILES
         for sf in scan_input.files
@@ -89,8 +95,7 @@ def _has_python_entrypoints(scan_input: ScanInput) -> bool:
 
 
 def _django_endpoints(source_file: SourceFile) -> list[Endpoint]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    text = source.decode("utf-8", errors="replace")
+    text = read_source_text(source_file)
     if "urlpatterns" not in text:
         return []
     out: list[Endpoint] = []
@@ -118,43 +123,38 @@ def _extract_django_handler(line: str) -> str:
 
 
 def _django_models(source_file: SourceFile) -> list[DataModel]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    text = source.decode("utf-8", errors="replace")
+    source = read_source_bytes(source_file)
+    text = decode_source(source)
     if "models.Model" not in text and "Model" not in text:
         return []
-    try:
-        tree = parse_source("python", source)
-    except LookupError:
+    tree = safe_parse("python", source)
+    if tree is None:
         return []
     out: list[DataModel] = []
-
-    def visit(node: object) -> None:
-        if node.type == "class_definition":
-            name = None
-            bases: list[str] = []
-            for child in node.children:
-                if child.type == "identifier" and name is None:
-                    name = node_text(source, child)
-                elif child.type == "argument_list":
-                    for arg in child.children:
-                        if arg.type in ("identifier", "attribute"):
-                            bases.append(node_text(source, arg))
-            if name and any(base in DJANGO_MODEL_BASES for base in bases):
-                fields = _class_fields(node, source)
-                out.append(
-                    DataModel(
-                        name=name,
-                        kind="class",
-                        fields=fields,
-                        source_path=source_file.relative_path,
-                        line=node.start_point[0] + 1,
-                        framework="python-django",
-                    )
-                )
+    for node in walk_preorder(tree.root_node):
+        if node.type != "class_definition":
+            continue
+        name = None
+        bases: list[str] = []
         for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
+            if child.type == "identifier" and name is None:
+                name = node_text(source, child)
+            elif child.type == "argument_list":
+                for arg in child.children:
+                    if arg.type in ("identifier", "attribute"):
+                        bases.append(node_text(source, arg))
+        if name and any(base in DJANGO_MODEL_BASES for base in bases):
+            fields = _class_fields(node, source)
+            out.append(
+                DataModel(
+                    name=name,
+                    kind="class",
+                    fields=fields,
+                    source_path=source_file.relative_path,
+                    line=node.start_point[0] + 1,
+                    framework="python-django",
+                )
+            )
     return out
 
 
@@ -174,19 +174,15 @@ def _class_fields(class_node: object, source: bytes) -> list[str]:
 
 
 def _python_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
-    import os
-
     basename = os.path.basename(source_file.relative_path)
     if basename not in ENTRYPOINT_FILES:
         return []
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source("python", source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse("python", source)
+    if tree is None:
         return []
     out: list[Entrypoint] = []
-
-    def visit(node: object) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "function_definition":
             for child in node.children:
                 if child.type == "identifier":
@@ -202,10 +198,6 @@ def _python_entrypoints(source_file: SourceFile) -> list[Entrypoint]:
                             )
                         )
                     break
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
 
 
@@ -215,14 +207,12 @@ def _python_framework_endpoints(
     include_fastapi: bool,
     include_flask: bool,
 ) -> list[Endpoint]:
-    source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-    try:
-        tree = parse_source("python", source)
-    except LookupError:
+    source = read_source_bytes(source_file)
+    tree = safe_parse("python", source)
+    if tree is None:
         return []
     out: list[Endpoint] = []
-
-    def visit(node: object) -> None:
+    for node in walk_preorder(tree.root_node):
         if node.type == "decorated_definition":
             out.extend(
                 _decorated_framework_endpoints(
@@ -233,10 +223,6 @@ def _python_framework_endpoints(
                     include_flask=include_flask,
                 )
             )
-        for child in node.children:
-            visit(child)
-
-    visit(tree.root_node)
     return out
 
 

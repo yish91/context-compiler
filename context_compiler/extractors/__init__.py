@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from ..ast_utils import read_source_bytes, safe_parse
 from ..models import ExtractedProject, ScanInput, SourceFile
-from ..tree_sitter_runtime import parse_source
 from .config_refs import extract_config_refs
 from .imports import extract_imports
 from .symbols import extract_doc_signals, extract_symbols
@@ -15,10 +15,9 @@ def extract_structure(scan_input: ScanInput) -> ExtractedProject:
     config_refs = []
     doc_signals = []
     for source_file in scan_input.files:
-        source = source_file.source_bytes or source_file.absolute_path.read_bytes()
-        try:
-            tree = parse_source(source_file.language, source)
-        except LookupError:
+        source = read_source_bytes(source_file)
+        tree = safe_parse(source_file.language, source)
+        if tree is None:
             continue
         symbols.extend(extract_symbols(tree, source_file, source))
         imports.extend(extract_imports(tree, source_file, source))
